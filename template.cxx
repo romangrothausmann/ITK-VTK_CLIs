@@ -2,33 +2,44 @@
 //01: based on template.cxx
 
 
-#include <complex>
+#include <itkCommand.h>
 
-#include "itkFilterWatcher.h"
-#include <itkImageFileReader.h>
-#include <itkImageFileWriter.h>
-
+#include <vtkSmartPointer.h>
+#include <vtkCallbackCommand.h>
 
 
-// template<typename ReaderImageType, typename WriterImageType>
-// void FilterEventHandlerITK(itk::Object *caller, const itk::EventObject &event, void*){
+template<typename ReaderImageType, typename WriterImageType>
+void FilterEventHandlerITK(itk::Object *caller, const itk::EventObject &event, void*){
 
-//     const itk::ProcessObject* filter = static_cast<const itk::ProcessObject*>(caller);
+    const itk::ProcessObject* filter = static_cast<const itk::ProcessObject*>(caller);
 
-//     if(itk::ProgressEvent().CheckEvent(&event))
-//         fprintf(stderr, "\r%s progress: %5.1f%%", filter->GetNameOfClass(), 100.0 * filter->GetProgress());//stderr is flushed directly
-//     else if(itk::StartEvent().CheckEvent(&event)){
-// 	if(strstr(filter->GetNameOfClass(), "ImageFileReader"))
-// 	    std::cerr << "Reading: " << (dynamic_cast<itk::ImageFileReader<ReaderImageType> *>(caller))->GetFileName() << std::endl;//cast only works if reader was instanciated for ReaderImageType!
-// 	else if(strstr(filter->GetNameOfClass(), "ImageFileWriter"))
-// 	    std::cerr << "Writing: " << (dynamic_cast<itk::ImageFileWriter<WriterImageType> *>(caller))->GetFileName() << std::endl;//cast only works if writer was instanciated for WriterImageType!
-// 	}
-//     else if(itk::IterationEvent().CheckEvent(&event))
-//         std::cerr << " Iteration: " << (dynamic_cast<itk::SliceBySliceImageFilter<ReaderImageType, WriterImageType> *>(caller))->GetSliceIndex() << std::endl;
-//     else if(itk::EndEvent().CheckEvent(&event))
-//         std::cerr << std::endl;
-//     }
+    if(itk::ProgressEvent().CheckEvent(&event))
+        fprintf(stderr, "\r%s progress: %5.1f%%", filter->GetNameOfClass(), 100.0 * filter->GetProgress());//stderr is flushed directly
+    else if(itk::StartEvent().CheckEvent(&event)){
+        if(strstr(filter->GetNameOfClass(), "ImageFileReader"))
+            std::cerr << "Reading: " << (dynamic_cast<itk::ImageFileReader<ReaderImageType> *>(caller))->GetFileName() << std::endl;//cast only works if reader was instanciated for ReaderImageType!
+        else if(strstr(filter->GetNameOfClass(), "ImageFileWriter"))
+            std::cerr << "Writing: " << (dynamic_cast<itk::ImageFileWriter<WriterImageType> *>(caller))->GetFileName() << std::endl;//cast only works if writer was instanciated for WriterImageType!
+        }
+    // else if(itk::IterationEvent().CheckEvent(&event))
+    //     std::cerr << " Iteration: " << (dynamic_cast<itk::SliceBySliceImageFilter<ReaderImageType, WriterImageType> *>(caller))->GetSliceIndex() << std::endl;
+    else if(itk::EndEvent().CheckEvent(&event))
+        std::cerr << std::endl;
+    }
 
+void FilterEventHandlerVTK(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData){
+
+    vtkAlgorithm *filter= static_cast<vtkAlgorithm*>(caller);
+
+    switch(eventId){
+    case vtkCommand::ProgressEvent:
+        fprintf(stderr, "\r%s progress: %5.1f%%", filter->GetClassName(), 100.0 * filter->GetProgress());//stderr is flushed directly
+        break;
+    case vtkCommand::EndEvent:
+        std::cerr << std::endl << std::flush;
+        break;
+        }
+    }
 
 
 template<typename InputComponentType, typename InputPixelType, size_t Dimension>
@@ -39,9 +50,12 @@ int DoIt(int argc, char *argv[]){
     typedef itk::Image<InputPixelType, Dimension>  InputImageType;
     typedef itk::Image<OutputPixelType, Dimension>  OutputImageType;
 
-    // itk::CStyleCommand::Pointer eventCallbackITK;
-    // eventCallbackITK = itk::CStyleCommand::New();
-    // eventCallbackITK->SetCallback(FilterEventHandlerITK<InputImageType, OutputImageType>);
+    itk::CStyleCommand::Pointer eventCallbackITK;
+    eventCallbackITK = itk::CStyleCommand::New();
+    eventCallbackITK->SetCallback(FilterEventHandlerITK<InputImageType, OutputImageType>);
+
+    vtkSmartPointer<vtkCallbackCommand> eventCallbackVTK = vtkSmartPointer<vtkCallbackCommand>::New();
+    eventCallbackVTK->SetCallback(FilterEventHandlerVTK);
 
 
     typedef itk::ImageFileReader<InputImageType> ReaderType;
@@ -49,9 +63,7 @@ int DoIt(int argc, char *argv[]){
 
     reader->SetFileName(argv[1]);
     reader->ReleaseDataFlagOn();
-    FilterWatcher watcherI(reader);
-    watcherI.QuietOn();
-    watcherI.ReportTimeOn();
+    reader->AddObserver(itk::AnyEvent(), eventCallbackITK);
     try{
         reader->Update();
         }
@@ -70,10 +82,7 @@ int DoIt(int argc, char *argv[]){
     filter->ReleaseDataFlagOn();
     filter->InPlaceOn();
 
-    FilterWatcher watcher1(filter);
-    // filter->AddObserver(itk::ProgressEvent(), eventCallbackITK);
-    // filter->AddObserver(itk::IterationEvent(), eventCallbackITK);
-    // filter->AddObserver(itk::EndEvent(), eventCallbackITK);
+    filter->AddObserver(itk::AnyEvent(), eventCallbackITK);
     try{
         filter->Update();
         }
@@ -85,14 +94,45 @@ int DoIt(int argc, char *argv[]){
 
     const typename OutputImageType::Pointer& output= filterXYZ->GetOutput();
 
-    typedef itk::ImageFileWriter<OutputImageType>  WriterType;
-    typename WriterType::Pointer writer = WriterType::New();
+    // typedef itk::ImageFileWriter<OutputImageType>  WriterType;
+    // typename WriterType::Pointer writer = WriterType::New();
 
-    FilterWatcher watcherO(writer);
+    // FilterWatcher watcherO(writer);
+    // writer->SetFileName(argv[2]);
+    // writer->SetInput(output);
+    // //writer->UseCompressionOn();
+    // //writer->SetUseCompression(atoi(argv[3]));
+    // try{
+    //     writer->Update();
+    //     }
+    // catch(itk::ExceptionObject &ex){
+    //     std::cerr << ex << std::endl;
+    //     return EXIT_FAILURE;
+    //     }
+
+
+    typedef itk::ImageToVTKImageFilter<InputImageType> ITK2VTKType;
+    typename ITK2VTKType::Pointer itk2vtk= ITK2VTKType::New();
+    itk2vtk->SetInput(output);
+    itk2vtk->ReleaseDataFlagOn();
+    //itk2vtk->InPlaceOn(); //not available
+    try{
+        itk2vtk->Update();
+        }
+    catch(itk::ExceptionObject &ex){
+        std::cerr << ex << std::endl;
+        return EXIT_FAILURE;
+        }
+
+    vtkSmartPointer<vtkXMLImageDataWriter> writer= vtkSmartPointer<vtkXMLImageDataWriter>::New();
     writer->SetFileName(argv[2]);
-    writer->SetInput(output);
-    //writer->UseCompressionOn();
-    //writer->SetUseCompression(atoi(argv[3]));
+    writer->SetInputData(itk2vtk->GetOutput());
+    writer->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
+    if(atoi(argv[3]))
+        writer->SetCompressorTypeToZLib();//default
+    else
+        writer->SetCompressorTypeToNone();
+
     try{
         writer->Update();
         }
@@ -136,22 +176,6 @@ int dispatch_pT(itk::ImageIOBase::IOPixelType pixelType, size_t dimensionType, i
     switch (pixelType){
     case itk::ImageIOBase::SCALAR:{
         typedef InputComponentType InputPixelType;
-        res= dispatch_D<InputComponentType, InputPixelType>(dimensionType, argc, argv);
-        } break;
-    case itk::ImageIOBase::RGB:{
-        typedef itk::RGBPixel<InputComponentType> InputPixelType;
-        res= dispatch_D<InputComponentType, InputPixelType>(dimensionType, argc, argv);
-        } break;
-    case itk::ImageIOBase::RGBA:{
-        typedef itk::RGBAPixel<InputComponentType> InputPixelType;
-        res= dispatch_D<InputComponentType, InputPixelType>(dimensionType, argc, argv);
-        } break;
-    case itk::ImageIOBase::COMPLEX:{
-        typedef std::complex<InputComponentType> InputPixelType;
-        res= dispatch_D<InputComponentType, InputPixelType>(dimensionType, argc, argv);
-        } break;
-    case itk::ImageIOBase::VECTOR:{
-        typedef itk::VariableLengthVector<InputComponentType> InputPixelType;
         res= dispatch_D<InputComponentType, InputPixelType>(dimensionType, argc, argv);
         } break;
     case itk::ImageIOBase::UNKNOWNPIXELTYPE:
