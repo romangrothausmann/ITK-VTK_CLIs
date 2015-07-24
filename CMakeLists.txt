@@ -64,3 +64,8 @@ SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 # ## check if specific modules are enabled
 # LIST(FIND ITK_MODULES_ENABLED ITKReview ITKReview_FOUND)
 
+
+SET(CurrentExe "itk2vti")
+ADD_EXECUTABLE(${CurrentExe}  ${CurrentExe})
+TARGET_LINK_LIBRARIES(${CurrentExe} ${Libraries})
+install (TARGETS ${CurrentExe} RUNTIME DESTINATION bin)
