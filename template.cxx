@@ -129,11 +129,12 @@ int DoIt(int argc, char *argv[]){
     vtkSmartPointer<vtkXMLImageDataWriter> writer= vtkSmartPointer<vtkXMLImageDataWriter>::New();
     writer->SetFileName(argv[2]);
     writer->SetInputData(itk2vtk->GetOutput());
-    writer->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
+    writer->SetDataModeToBinary();//SetDataModeToAscii()//SetDataModeToAppended()
     if(atoi(argv[3]))
         writer->SetCompressorTypeToZLib();//default
     else
         writer->SetCompressorTypeToNone();
+    writer->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
 
     try{
         writer->Update();
