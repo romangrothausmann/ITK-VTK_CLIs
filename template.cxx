@@ -3,6 +3,8 @@
 
 
 #include <itkCommand.h>
+#include <itkImageToVTKImageFilter.h>
+#include <itkVTKImageToImageFilter.h>
 
 #include <vtkSmartPointer.h>
 #include <vtkCallbackCommand.h>
