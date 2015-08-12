@@ -69,3 +69,8 @@ SET(CurrentExe "itk2vti")
 ADD_EXECUTABLE(${CurrentExe}  ${CurrentExe})
 TARGET_LINK_LIBRARIES(${CurrentExe} ${Libraries})
 install (TARGETS ${CurrentExe} RUNTIME DESTINATION bin)
+
+SET(CurrentExe "straighten")
+ADD_EXECUTABLE(${CurrentExe}  ${CurrentExe} vtkSplineDrivenImageSlicer/vtkSplineDrivenImageSlicer.cxx vtkSplineDrivenImageSlicer/vtkFrenetSerretFrame.cxx)
+TARGET_LINK_LIBRARIES(${CurrentExe} ${Libraries})
+install (TARGETS ${CurrentExe} RUNTIME DESTINATION bin)

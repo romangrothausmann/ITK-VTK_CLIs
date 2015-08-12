@@ -1,13 +1,20 @@
-////program for
-//01: based on template.cxx
+////program for vtkSplineDrivenImageSlicer
+//01: based on template.cxx and StraightenedReformattedVolume.cxx from J. Velut (http://hdl.handle.net/10380/3318)
 
 
 #include <itkCommand.h>
+#include <itkImageFileReader.h>
 #include <itkImageToVTKImageFilter.h>
 #include <itkVTKImageToImageFilter.h>
+#include <itkImageFileWriter.h>
 
 #include <vtkSmartPointer.h>
 #include <vtkCallbackCommand.h>
+#include <vtkXMLPolyDataReader.h>
+#include "vtkSplineDrivenImageSlicer/vtkSplineDrivenImageSlicer.h"
+#include <vtkImageAppend.h>
+#include <vtkPolyData.h>
+#include <vtkImageData.h>
 
 
 template<typename ReaderImageType, typename WriterImageType>
@@ -47,7 +54,7 @@ void FilterEventHandlerVTK(vtkObject* caller, long unsigned int eventId, void* c
 template<typename InputComponentType, typename InputPixelType, size_t Dimension>
 int DoIt(int argc, char *argv[]){
 
-    typedef   OutputPixelType;
+    typedef InputPixelType  OutputPixelType;
 
     typedef itk::Image<InputPixelType, Dimension>  InputImageType;
     typedef itk::Image<OutputPixelType, Dimension>  OutputImageType;
@@ -76,48 +83,10 @@ int DoIt(int argc, char *argv[]){
 
     const typename InputImageType::Pointer& input= reader->GetOutput();
 
-
-
-    typedef itk::<InputImageType> FilterType;
-    typename FilterType::Pointer filter= FilterType::New();
-    filter->SetInput(input);
-    filter->ReleaseDataFlagOn();
-    filter->InPlaceOn();
-
-    filter->AddObserver(itk::AnyEvent(), eventCallbackITK);
-    try{
-        filter->Update();
-        }
-    catch(itk::ExceptionObject &ex){
-        std::cerr << ex << std::endl;
-        return EXIT_FAILURE;
-        }
-
-
-    const typename OutputImageType::Pointer& output= filterXYZ->GetOutput();
-
-    // typedef itk::ImageFileWriter<OutputImageType>  WriterType;
-    // typename WriterType::Pointer writer = WriterType::New();
-
-    // FilterWatcher watcherO(writer);
-    // writer->SetFileName(argv[2]);
-    // writer->SetInput(output);
-    // //writer->UseCompressionOn();
-    // //writer->SetUseCompression(atoi(argv[3]));
-    // try{
-    //     writer->Update();
-    //     }
-    // catch(itk::ExceptionObject &ex){
-    //     std::cerr << ex << std::endl;
-    //     return EXIT_FAILURE;
-    //     }
-
-
     typedef itk::ImageToVTKImageFilter<InputImageType> ITK2VTKType;
     typename ITK2VTKType::Pointer itk2vtk= ITK2VTKType::New();
-    itk2vtk->SetInput(output);
+    itk2vtk->SetInput(input);
     itk2vtk->ReleaseDataFlagOn();
-    //itk2vtk->InPlaceOn(); //not available
     try{
         itk2vtk->Update();
         }
@@ -126,16 +95,62 @@ int DoIt(int argc, char *argv[]){
         return EXIT_FAILURE;
         }
 
-    vtkSmartPointer<vtkXMLImageDataWriter> writer= vtkSmartPointer<vtkXMLImageDataWriter>::New();
-    writer->SetFileName(argv[2]);
-    writer->SetInputData(itk2vtk->GetOutput());
-    writer->SetDataModeToBinary();//SetDataModeToAscii()//SetDataModeToAppended()
-    if(atoi(argv[3]))
-        writer->SetCompressorTypeToZLib();//default
-    else
-        writer->SetCompressorTypeToNone();
-    writer->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
 
+    vtkSmartPointer<vtkXMLPolyDataReader> pathReader= vtkSmartPointer<vtkXMLPolyDataReader>::New();
+    pathReader->SetFileName(argv[2]);
+    pathReader->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
+    pathReader->Update();
+
+    double spacing= itk2vtk->GetOutput()->GetSpacing()[0];//expecting isotropic spacing!
+    vtkSmartPointer<vtkSplineDrivenImageSlicer> reslicer= vtkSmartPointer<vtkSplineDrivenImageSlicer>::New();
+    reslicer->SetInputData(itk2vtk->GetOutput());
+    reslicer->SetPathConnection(pathReader->GetOutputPort());
+    reslicer->SetSliceExtent(atoi(argv[5]), atoi(argv[6]));
+    reslicer->SetSliceSpacing(spacing, spacing);
+    reslicer->SetSliceThickness(atof(argv[7]));
+
+    vtkSmartPointer<vtkImageAppend> append= vtkSmartPointer<vtkImageAppend>::New();
+
+
+    vtkIdType nbPoints = pathReader->GetOutput()->GetNumberOfPoints();
+    for(vtkIdType ptId = 0; ptId < nbPoints; ptId++){
+        reslicer->SetOffsetPoint(ptId);
+        reslicer->Update();
+
+        vtkSmartPointer<vtkImageData> tempSlice;
+        tempSlice= vtkSmartPointer<vtkImageData>::New();
+        tempSlice->DeepCopy(reslicer->GetOutput(0));
+
+        append->AddInputData(tempSlice);
+
+        fprintf(stderr, "\r%s progress: %5.1f%%", "Reslicing", 100.0 * ptId/nbPoints);
+        }
+    std::cerr << " done." << std::endl;
+
+    append->SetAppendAxis(2);
+    append->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
+    append->Update();
+
+
+    typedef itk::VTKImageToImageFilter<InputImageType> VTK2ITKType;
+    typename VTK2ITKType::Pointer vtk2itk= VTK2ITKType::New();
+    vtk2itk->SetInput(append->GetOutput());
+    vtk2itk->ReleaseDataFlagOn();
+    try{
+        vtk2itk->Update();
+        }
+    catch(itk::ExceptionObject &ex){
+        std::cerr << ex << std::endl;
+        return EXIT_FAILURE;
+        }
+
+    typedef itk::ImageFileWriter<OutputImageType>  WriterType;
+    typename WriterType::Pointer writer = WriterType::New();
+
+    writer->SetFileName(argv[3]);
+    writer->SetInput(vtk2itk->GetOutput());
+    writer->SetUseCompression(atoi(argv[4]));
+    writer->AddObserver(itk::AnyEvent(), eventCallbackITK);
     try{
         writer->Update();
         }
@@ -153,12 +168,6 @@ template<typename InputComponentType, typename InputPixelType>
 int dispatch_D(size_t dimensionType, int argc, char *argv[]){
     int res= EXIT_FAILURE;
     switch (dimensionType){
-    case 1:
-        res= DoIt<InputComponentType, InputPixelType, 1>(argc, argv);
-        break;
-    case 2:
-        res= DoIt<InputComponentType, InputPixelType, 2>(argc, argv);
-        break;
     case 3:
         res= DoIt<InputComponentType, InputPixelType, 3>(argc, argv);
         break;
@@ -276,12 +285,15 @@ void GetImageType (std::string fileName,
 
 
 int main(int argc, char *argv[]){
-    if ( argc != 4 ){
+    if ( argc != 8 ){
         std::cerr << "Missing Parameters: "
                   << argv[0]
                   << " Input_Image"
+                  << " Input_Path"
                   << " Output_Image"
                   << " compress"
+                  << " x-extent y-extent"
+                  << " avg_z-spacing"
                   << std::endl;
 
         return EXIT_FAILURE;
