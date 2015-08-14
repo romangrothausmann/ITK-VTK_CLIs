@@ -108,6 +108,7 @@ int DoIt(int argc, char *argv[]){
     reslicer->SetSliceExtent(atoi(argv[5]), atoi(argv[6]));
     reslicer->SetSliceSpacing(spacing, spacing);
     reslicer->SetSliceThickness(atof(argv[7]));
+    reslicer->SetInterpolationMode(atoi(argv[8]));
 
     vtkSmartPointer<vtkImageAppend> append= vtkSmartPointer<vtkImageAppend>::New();
 
@@ -285,7 +286,7 @@ void GetImageType (std::string fileName,
 
 
 int main(int argc, char *argv[]){
-    if ( argc != 8 ){
+    if ( argc != 9 ){
         std::cerr << "Missing Parameters: "
                   << argv[0]
                   << " Input_Image"
@@ -294,6 +295,7 @@ int main(int argc, char *argv[]){
                   << " compress"
                   << " x-extent y-extent"
                   << " avg_z-spacing"
+                  << " interpolation-mode"
                   << std::endl;
 
         return EXIT_FAILURE;
