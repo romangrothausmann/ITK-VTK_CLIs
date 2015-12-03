@@ -11,7 +11,7 @@
 #include <vtkSmartPointer.h>
 #include <vtkCallbackCommand.h>
 #include <vtkXMLPolyDataReader.h>
-#include "vtkSplineDrivenImageSlicer/vtkSplineDrivenImageSlicer.h"
+#include "vtkSplineDrivenImageSlicer.h"
 #include <vtkImageAppend.h>
 #include <vtkPolyData.h>
 #include <vtkImageData.h>

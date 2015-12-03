@@ -1,0 +1,3 @@
+[submodule "filter/external/vtkSplineDrivenImageSlicer"]
+	path = filter/external/vtkSplineDrivenImageSlicer
+	url = https://romangrothausmann@github.com/romangrothausmann/SplineDrivenImageSlicer.git

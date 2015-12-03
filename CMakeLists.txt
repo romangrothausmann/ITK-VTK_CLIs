@@ -58,6 +58,7 @@ SET(Libraries
   ${VTK_LIBRARIES}
 )
 
+SET(vtkSplineDrivenImageSlicer "filter/external/vtkSplineDrivenImageSlicer/Filters/")
 
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
@@ -71,6 +72,7 @@ TARGET_LINK_LIBRARIES(${CurrentExe} ${Libraries})
 install (TARGETS ${CurrentExe} RUNTIME DESTINATION bin)
 
 SET(CurrentExe "straighten")
-ADD_EXECUTABLE(${CurrentExe}  ${CurrentExe} vtkSplineDrivenImageSlicer/vtkSplineDrivenImageSlicer.cxx vtkSplineDrivenImageSlicer/vtkFrenetSerretFrame.cxx)
+ADD_EXECUTABLE(${CurrentExe}  ${CurrentExe} "${vtkSplineDrivenImageSlicer}/vtkSplineDrivenImageSlicer.cxx" "${vtkSplineDrivenImageSlicer}/vtkFrenetSerretFrame.cxx")
+TARGET_INCLUDE_DIRECTORIES(${CurrentExe} PRIVATE "${vtkSplineDrivenImageSlicer}")
 TARGET_LINK_LIBRARIES(${CurrentExe} ${Libraries})
 install (TARGETS ${CurrentExe} RUNTIME DESTINATION bin)
