@@ -13,8 +13,10 @@
 #include <vtkXMLPolyDataReader.h>
 #include "vtkSplineDrivenImageSlicer.h"
 #include <vtkImageAppend.h>
+#include <vtkAppendPolyData.h>
 #include <vtkPolyData.h>
 #include <vtkImageData.h>
+#include <vtkXMLPolyDataWriter.h>
 
 
 template<typename ReaderImageType, typename WriterImageType>
@@ -109,12 +111,22 @@ int DoIt(int argc, char *argv[]){
     reslicer->SetSliceSpacing(spacing, spacing);
     reslicer->SetSliceThickness(atof(argv[7]));
     reslicer->SetInterpolationMode(atoi(argv[8]));
+    
+    unsigned int every= 1000;
+    if(argc > 11)
+	every= atoi(argv[11]);
 
     vtkSmartPointer<vtkImageAppend> append= vtkSmartPointer<vtkImageAppend>::New();
+    vtkSmartPointer<vtkAppendPolyData> appendPD= vtkSmartPointer<vtkAppendPolyData>::New();
 
 
     vtkIdType nbPoints = pathReader->GetOutput()->GetNumberOfPoints();
     for(vtkIdType ptId = 0; ptId < nbPoints; ptId++){
+	if((argc > 10) && !(ptId % every))
+	    reslicer->SetProbeInput(atoi(argv[10]));
+	else
+	    reslicer->ProbeInputOff();
+
         reslicer->SetOffsetPoint(ptId);
         reslicer->Update();
 
@@ -123,6 +135,13 @@ int DoIt(int argc, char *argv[]){
         tempSlice->DeepCopy(reslicer->GetOutput(0));
 
         append->AddInputData(tempSlice);
+
+	if((argc > 9) && !(ptId % every)){
+	    std::cerr << " Adding a vtkPolyData plane." << std::endl;	    
+	    vtkSmartPointer<vtkPolyData> tempPD= vtkSmartPointer<vtkPolyData>::New();
+	    tempPD->ShallowCopy(reslicer->GetOutput(1));
+	    appendPD->AddInputData(tempPD);
+	    }
 
         fprintf(stderr, "\r%s progress: %5.1f%%", "Reslicing", 100.0 * ptId/nbPoints);
         }
@@ -159,6 +178,22 @@ int DoIt(int argc, char *argv[]){
         std::cerr << ex << std::endl;
         return EXIT_FAILURE;
         }
+
+    if(argc > 9){
+	appendPD->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
+	appendPD->Update();
+
+	vtkSmartPointer<vtkXMLPolyDataWriter> writerPD= vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+	writerPD->SetFileName(argv[9]);
+	writerPD->SetInputConnection(appendPD->GetOutputPort());
+	writerPD->SetDataModeToBinary();//SetDataModeToAscii()//SetDataModeToAppended()
+	if(atoi(argv[4]))
+	    writerPD->SetCompressorTypeToZLib();//default
+	else
+	    writerPD->SetCompressorTypeToNone();
+	writerPD->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
+	writerPD->Write();
+	}
 
     return EXIT_SUCCESS;
 
@@ -286,7 +321,7 @@ void GetImageType (std::string fileName,
 
 
 int main(int argc, char *argv[]){
-    if ( argc != 9 ){
+    if ( argc < 9 ){
         std::cerr << "Missing Parameters: "
                   << argv[0]
                   << " Input_Image"
@@ -296,6 +331,7 @@ int main(int argc, char *argv[]){
                   << " x-extent y-extent"
                   << " avg_z-spacing"
                   << " interpolation-mode"
+                  << " [outpuPD] [probe-scalars] [slice-interv]"
                   << std::endl;
 
         return EXIT_FAILURE;

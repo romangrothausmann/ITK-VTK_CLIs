@@ -88,6 +88,7 @@ int DoIt(int argc, char *argv[]){
     writer->SetFileName(argv[2]);
     writer->SetInputData(itk2vtk->GetOutput());
     writer->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
+    writer->SetHeaderTypeToUInt64();//essential for image-data > 4GB, at least if writing uncompressed
     if(atoi(argv[3]))
         writer->SetCompressorTypeToZLib();//default
     else
