@@ -13,10 +13,11 @@
 #include <vtkXMLPolyDataReader.h>
 #include "vtkSplineDrivenImageSlicer.h"
 #include <vtkImageAppend.h>
-#include <vtkAppendPolyData.h>
 #include <vtkPolyData.h>
 #include <vtkImageData.h>
 #include <vtkXMLPolyDataWriter.h>
+
+#include <set>
 
 
 template<typename ReaderImageType, typename WriterImageType>
@@ -68,6 +69,8 @@ int DoIt(int argc, char *argv[]){
     vtkSmartPointer<vtkCallbackCommand> eventCallbackVTK = vtkSmartPointer<vtkCallbackCommand>::New();
     eventCallbackVTK->SetCallback(FilterEventHandlerVTK);
 
+    char* outPrefix= argv[9];
+    std::stringstream sss;
 
     typedef itk::ImageFileReader<InputImageType> ReaderType;
     typename ReaderType::Pointer reader = ReaderType::New();
@@ -111,18 +114,31 @@ int DoIt(int argc, char *argv[]){
     reslicer->SetSliceSpacing(spacing, spacing);
     reslicer->SetSliceThickness(atof(argv[7]));
     reslicer->SetInterpolationMode(atoi(argv[8]));
+    reslicer->UseSliceSpacingOff();//drastically reduces polyDataOutput, sufficient for texture mapping
     
     unsigned int every= 1000;
-    if(argc > 11)
+    std::set<vtkIdType> sliceSet;
+  
+    if(argc > 12)
+	for(vtkIdType i= 11; i < argc; i++)
+	    sliceSet.insert(atoi(argv[i])); 
+    else
 	every= atoi(argv[11]);
 
+
+    std::set<vtkIdType>::iterator it;
+    std::cerr << "sliceSet: ";
+    for (it=sliceSet.begin(); it!=sliceSet.end(); ++it)
+	std::cerr << ' ' << *it;
+    std::cerr << std::endl;
+
     vtkSmartPointer<vtkImageAppend> append= vtkSmartPointer<vtkImageAppend>::New();
-    vtkSmartPointer<vtkAppendPolyData> appendPD= vtkSmartPointer<vtkAppendPolyData>::New();
 
 
     vtkIdType nbPoints = pathReader->GetOutput()->GetNumberOfPoints();
     for(vtkIdType ptId = 0; ptId < nbPoints; ptId++){
-	if((argc > 10) && !(ptId % every))
+	const bool is_in= sliceSet.find(ptId) != sliceSet.end(); // http://stackoverflow.com/a/1701083
+	if(((argc == 12) && !(ptId % every)) || is_in )
 	    reslicer->SetProbeInput(atoi(argv[10]));
 	else
 	    reslicer->ProbeInputOff();
@@ -136,11 +152,18 @@ int DoIt(int argc, char *argv[]){
 
         append->AddInputData(tempSlice);
 
-	if((argc > 9) && !(ptId % every)){
-	    std::cerr << " Adding a vtkPolyData plane." << std::endl;	    
-	    vtkSmartPointer<vtkPolyData> tempPD= vtkSmartPointer<vtkPolyData>::New();
-	    tempPD->ShallowCopy(reslicer->GetOutput(1));
-	    appendPD->AddInputData(tempPD);
+	if(((argc == 12) && !(ptId % every)) || is_in ){
+	    vtkSmartPointer<vtkXMLPolyDataWriter> writerPD= vtkSmartPointer<vtkXMLPolyDataWriter>::New();
+	    sss.str(""); sss << outPrefix << "_" << std::setfill('0') << std::setw(4) << ptId << ".vtp";
+	    writerPD->SetFileName(sss.str().c_str());
+	    writerPD->SetInputConnection(reslicer->GetOutputPort(1));
+	    writerPD->SetDataModeToBinary();//SetDataModeToAscii()//SetDataModeToAppended()
+	    if(atoi(argv[4]))
+		writerPD->SetCompressorTypeToZLib();//default
+	    else
+		writerPD->SetCompressorTypeToNone();
+	    writerPD->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
+	    writerPD->Write();
 	    }
 
         fprintf(stderr, "\r%s progress: %5.1f%%", "Reslicing", 100.0 * ptId/nbPoints);
@@ -178,22 +201,6 @@ int DoIt(int argc, char *argv[]){
         std::cerr << ex << std::endl;
         return EXIT_FAILURE;
         }
-
-    if(argc > 9){
-	appendPD->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
-	appendPD->Update();
-
-	vtkSmartPointer<vtkXMLPolyDataWriter> writerPD= vtkSmartPointer<vtkXMLPolyDataWriter>::New();
-	writerPD->SetFileName(argv[9]);
-	writerPD->SetInputConnection(appendPD->GetOutputPort());
-	writerPD->SetDataModeToBinary();//SetDataModeToAscii()//SetDataModeToAppended()
-	if(atoi(argv[4]))
-	    writerPD->SetCompressorTypeToZLib();//default
-	else
-	    writerPD->SetCompressorTypeToNone();
-	writerPD->AddObserver(vtkCommand::AnyEvent, eventCallbackVTK);
-	writerPD->Write();
-	}
 
     return EXIT_SUCCESS;
 
@@ -331,7 +338,7 @@ int main(int argc, char *argv[]){
                   << " x-extent y-extent"
                   << " avg_z-spacing"
                   << " interpolation-mode"
-                  << " [outpuPD] [probe-scalars] [slice-interv]"
+                  << " [outpuPD] [probe-scalars] [slice-interv | [slice1] [slice2] ...]"
                   << std::endl;
 
         return EXIT_FAILURE;
