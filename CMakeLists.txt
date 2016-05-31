@@ -58,6 +58,9 @@ SET(Libraries
   ${VTK_LIBRARIES}
 )
 
+list(REMOVE_ITEM Libraries vtkSciberQuest vtkEyeDomeLighting vtkQvis vtkPointSpriteRendering vtkPVPythonCatalyst vtkPointSpriteGraphics vtkUtilitiesPythonInitializer) # avoid ld: cannot find -lvtkSciberQuest etc
+
+
 SET(vtkSplineDrivenImageSlicer "filter/external/vtkSplineDrivenImageSlicer/Filters/")
 
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
