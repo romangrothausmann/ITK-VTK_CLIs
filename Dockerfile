@@ -41,7 +41,7 @@ RUN mkdir -p VTK_build && \
 
 
 ### ITK
-RUN git clone -b v4.12.2 --depth 1 https://itk.org/ITK.git
+RUN git clone -b v4.13.2 --depth 1 https://itk.org/ITK.git
 
 RUN mkdir -p ITK_build && \
     cd ITK_build && \
