@@ -38,8 +38,7 @@ RUN mkdir -p VTK_build && \
 ### ITK
 RUN git clone https://github.com/InsightSoftwareConsortium/ITK.git `# GH for PRs ` && \
     cd ITK && \
-    git fetch origin pull/765/head:vtk-rendering-optional `# get PR ` && \
-    git checkout vtk-rendering-optional
+    git checkout dc4419daa5fa3d1e3d9ff6d8d6d76902e5d1bee9
 
 RUN mkdir -p ITK_build && \
     cd ITK_build && \
