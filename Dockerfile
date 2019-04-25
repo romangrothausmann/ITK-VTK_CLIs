@@ -34,7 +34,6 @@ RUN mkdir -p VTK_build && \
     make -j"$(nproc)" && \
     make -j"$(nproc)" install
 
-RUN find /vtk /VTK_build /opt/vtk -name '*vtkRenderingNone*'
 
 ### ITK
 RUN git clone https://github.com/InsightSoftwareConsortium/ITK.git `# GH for PRs ` && \
