@@ -37,7 +37,10 @@ RUN mkdir -p VTK_build && \
 RUN find /vtk /VTK_build /opt/vtk -name '*vtkRenderingNone*'
 
 ### ITK
-RUN git clone -b v4.13.2 --depth 1 https://itk.org/ITK.git
+RUN git clone https://github.com/InsightSoftwareConsortium/ITK.git `# GH for PRs ` && \
+    cd ITK && \
+    git fetch origin pull/765/head:vtk-rendering-optional `# get PR ` && \
+    git checkout vtk-rendering-optional
 
 RUN mkdir -p ITK_build && \
     cd ITK_build && \
