@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential
 
 ### VTK
-RUN git clone -b v8.1.2 --depth 1 https://gitlab.kitware.com/vtk/vtk.git
+RUN git clone -b v8.2.0 --depth 1 https://gitlab.kitware.com/vtk/vtk.git
 
 RUN mkdir -p VTK_build && \
     cd VTK_build && \
